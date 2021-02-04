@@ -707,6 +707,14 @@ SQL
     $BATS_TEST_DIRNAME/sql-works-after-failing-query.expect
 }
 
+@test "sql shell delimiter" {
+    skiponwindows "Need to install expect and make this script work on windows."
+    run $BATS_TEST_DIRNAME/sql-delimiter.expect
+    echo "$output"
+    [[ ! "$output" =~ "Error" ]] || false
+    [[ ! "$output" =~ "error" ]] || false
+}
+
 @test "sql insert on duplicate key inserts data by column" {
     run dolt sql -q "CREATE TABLE test (col_a varchar(2) not null, col_b varchar(2), col_c varchar(2), primary key(col_a));"
     [ $status -eq 0 ]

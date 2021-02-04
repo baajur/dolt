@@ -638,27 +638,53 @@ func runShell(ctx *sql.Context, se *sqlEngine, mrEnv env.MultiRepoEnv, initialRo
 		// For now, we store all history entries as single-line strings to avoid the issue.
 		singleLine := strings.ReplaceAll(query, "\n", " ")
 
-		var err error
-		if err = shell.AddHistory(singleLine); err != nil {
+		if err := shell.AddHistory(singleLine); err != nil {
 			// TODO: handle better, like by turning off history writing for the rest of the session
 			shell.Println(color.RedString(err.Error()))
 		}
 
-		if sqlSch, rowIter, err := processQuery(ctx, query, se); err != nil {
-			verr := formatQueryError("", err)
-			shell.Println(verr.Verbose())
-		} else if rowIter != nil {
-			err = PrettyPrintResults(ctx, se.resultFormat, sqlSch, rowIter)
-			if err != nil {
-				shell.Println(color.RedString(err.Error()))
+		shouldProcessQuery := true
+
+		//TODO: Parse this in a way that can handle comments
+		if len(singleLine) > 9 && strings.HasPrefix(strings.ToLower(singleLine[:9]), "delimiter") {
+			// The delimiter statement will be in the form of:
+			// DELIMITER TOKEN ;
+			// The semicolon is the default delimiter (will be different if previously set).
+			// So we can just split on the spaces and grab the middle match as the token.
+			// This does not handle comments or anything else that may be valid within the a delimiter statement.
+			// If we don't match from anything, then we just pass to the SQL engine and let it complain.
+			splitQuery := strings.Split(singleLine, " ")
+			if len(splitQuery) == 3 {
+				shell.SetLineTerminator(splitQuery[1])
+				shouldProcessQuery = false
 			}
 		}
 
-		if err == nil {
-			returnedVerr = writeRoots(ctx, se, mrEnv, initialRoots)
+		if shouldProcessQuery {
+			var sqlSch sql.Schema
+			var rowIter sql.RowIter
+			var err error
 
-			if returnedVerr != nil {
-				return
+			// The SQL parser does not understand any other terminator besides semicolon, so we remove it.
+			if shell.LineTerminator() != ";" && strings.HasSuffix(query, shell.LineTerminator()) {
+				query = query[:len(query)-len(shell.LineTerminator())]
+			}
+
+			if sqlSch, rowIter, err = processQuery(ctx, query, se); err != nil {
+				verr := formatQueryError("", err)
+				shell.Println(verr.Verbose())
+			} else if rowIter != nil {
+				err = PrettyPrintResults(ctx, se.resultFormat, sqlSch, rowIter)
+				if err != nil {
+					shell.Println(color.RedString(err.Error()))
+				}
+			}
+
+			if err == nil {
+				returnedVerr = writeRoots(ctx, se, mrEnv, initialRoots)
+				if returnedVerr != nil {
+					return
+				}
 			}
 		}
 

@@ -1,0 +1,28 @@
+#!/usr/bin/expect
+
+set timeout 1
+spawn dolt sql
+set id $spawn_id
+
+expect -i id "doltsql> "
+send -i id "SELECT * FROM dual;\r"
+
+expect -i id "doltsql> "
+send -i id "DELIMITER $$ ;\r"
+
+expect -i id "doltsql> "
+send -i id "SELECT * FROM dual$$\r"
+
+expect -i id "doltsql> "
+send -i id "delimiter # $$\r"
+
+expect -i id "doltsql> "
+send -i id "SELECT * FROM dual #\r"
+
+expect -i id "doltsql> "
+send -i id "DeLiMiTeR ; #\r"
+
+expect -i id "doltsql> "
+send -i id "SELECT * FROM dual;\r"
+
+expect -i id eof
