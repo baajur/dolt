@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [ ubuntu-18.04, macos-latest, windows-2019 ]
+        os: [ windows-2019 ]
     env:
       use_credentials: ${{ secrets.AWS_SECRET_ACCESS_KEY != '' && secrets.AWS_ACCESS_KEY_ID != '' }}
     steps:
@@ -69,13 +69,22 @@ jobs:
       - name: Install Doltpy
         run: |
           pip install doltpy
-      - name: Install Dolt
+      - name: Install Dolt Unix
+#        if: matrix.os != 'windows-2019'
         working-directory: ./go
         run: |
           go build -mod=readonly -o ../.ci_bin/dolt ./cmd/dolt/.
           go build -mod=readonly -o ../.ci_bin/git-dolt ./cmd/git-dolt/.
           go build -mod=readonly -o ../.ci_bin/git-dolt-smudge ./cmd/git-dolt-smudge/.
           go build -mod=readonly -o ../.ci_bin/remotesrv ./utils/remotesrv/.
+#      - name: Install Dolt Windows
+#        if: matrix.os == 'windows-2019'
+#        working-directory: ./go
+#        run: |
+#          go build -mod=readonly -o ../.ci_bin/dolt.exe ./cmd/dolt/.
+#          go build -mod=readonly -o ../.ci_bin/git-dolt.exe ./cmd/git-dolt/.
+#          go build -mod=readonly -o ../.ci_bin/git-dolt-smudge.exe ./cmd/git-dolt-smudge/.
+#          go build -mod=readonly -o ../.ci_bin/remotesrv.exe ./utils/remotesrv/.
       - name: Setup Dolt Config
         run: |
           dolt config --global --add user.name 'Dolthub Actions'
@@ -86,9 +95,13 @@ jobs:
       - name: Check expect
         if: matrix.os != 'windows-2019'
         run: expect -v
+      - name: Set Locals Windows
+        run: ./setLocals.sh
+        working-directory: ./github/scripts/bats-windows
       - name: Test all
         run: |
-          bats --tap .
+          bats --tap sql.bats
+          bats --tap git-dolt.bats
         working-directory: ./bats
       - name: Discord Notify
         if: always()
